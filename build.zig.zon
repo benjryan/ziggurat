@@ -1,0 +1,19 @@
+.{
+    .name = "ziggurat",
+    .version = "0.0.1",
+    .paths = .{""},
+    .dependencies = .{
+        .mach_glfw = .{
+            .url = "https://github.com/hexops/mach-glfw/archive/39e5d18fc44da62e3d7b3f76fc67ad4b595e765d.tar.gz",
+            .hash = "12208da63a18938cf0ac8fe0e9f538b87d796057684f090e15a8c8bbb9326ec8ea21",
+        },
+        .glfw = .{
+            .url = "https://github.com/hexops/glfw/archive/e425858a0d13c11f1df73cb38fce6b2f6286e878.tar.gz",
+            .hash = "1220e8c31f0bb91c406dbea3d20979525d6af2c7a168cd3b53b6757381ec0bc8cce8",
+        },
+        .vulkan_zig = .{
+            .url = "https://github.com/Snektron/vulkan-zig/archive/6c9133bc24fe1238a4063f2f57b18c952ec0a800.tar.gz",
+            .hash = "1220d3e1254af9c8fd4c3f09bd9f50f51dc5eaa5506f845ed67bcd75e1e2961ce1ea",
+        },
+    },
+}
