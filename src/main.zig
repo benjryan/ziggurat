@@ -180,9 +180,11 @@ fn updateUniformBuffer(memory: *anyopaque) void {
         .view = zmath.lookAtLh(.{ 2.0, 2.0, 2.0, 1.0 }, .{ 0.0, 0.0, 0.0, 1.0 }, .{ 0.0, 1.0, 0.0, 0.0 }),
         .proj = zmath.perspectiveFovLh(std.math.degreesToRadians(f32, 45.0), @as(f32, @floatFromInt(swapchain.extent.width)) / @as(f32, @floatFromInt(swapchain.extent.height)), 0.1, 10.0)
     };
-    var dst = @as([*]u8, @ptrCast(@alignCast(memory)))[0..@sizeOf(UniformBufferObject)];
-    var src = std.mem.asBytes(&ubo);
-    @memcpy(dst, src);
+    var mem: *UniformBufferObject = @ptrCast(@alignCast(memory));
+    mem.* = ubo;
+    //var dst = @as([*]u8, @ptrCast(@alignCast(memory)))[0..@sizeOf(UniformBufferObject)];
+    //var src = std.mem.asBytes(&ubo);
+    //@memcpy(dst, src);
 }
 
 fn createDescriptorSetLayout() !void {
@@ -320,6 +322,7 @@ fn createCommandBuffers(allocator: Allocator) !void {
         gc.vkd.cmdBindPipeline(cmdbuf, .graphics, graphics_pipeline);
         const offset = [_]vk.DeviceSize{0};
         gc.vkd.cmdBindVertexBuffers(cmdbuf, 0, 1, @as([*]const vk.Buffer, @ptrCast(&vertex_buffer)), &offset);
+        gc.vkd.cmdBindDescriptorSets(cmdbuf, .graphics, pipeline_layout, 0, 1, @ptrCast(&descriptor_sets[i]), 0, null);
         gc.vkd.cmdDraw(cmdbuf, vertices.len, 1, 0, 0);
 
         gc.vkd.cmdEndRenderPass(cmdbuf);
@@ -360,7 +363,8 @@ fn destroyFramebuffers(allocator: Allocator) void {
 
 fn createUniformBuffers() !void {
     for (0..max_frames_in_flight) |i| {
-        try createBuffer(@sizeOf(@TypeOf(vertices)), 
+        const buffer_size = @sizeOf(UniformBufferObject);
+        try createBuffer(buffer_size, 
             .{ 
                 .uniform_buffer_bit = true 
             }, 
@@ -371,7 +375,8 @@ fn createUniformBuffers() !void {
             &uniform_buffers[i], &uniform_buffers_memory[i]);
 
         // NOTE(bryan): Persistent mapping.
-        var mapped_memory = try gc.vkd.mapMemory(gc.dev, uniform_buffers_memory[i], 0, @sizeOf(UniformBufferObject), .{});
+        var mapped_memory = try gc.vkd.mapMemory(gc.dev, uniform_buffers_memory[i], 0, buffer_size, .{});
+        std.debug.assert(mapped_memory != null);
         if (mapped_memory) |m| {
             uniform_buffers_mapped[i] = m;
         }
@@ -401,7 +406,7 @@ fn createDescriptorPool() !void {
 
 fn createDescriptorSets() !void {
     var layouts: [max_frames_in_flight]vk.DescriptorSetLayout = undefined;
-    @memset(&layouts, descriptor_set_layout);
+    @memset(layouts[0..max_frames_in_flight], descriptor_set_layout);
     var alloc_info = vk.DescriptorSetAllocateInfo{
         .descriptor_pool = descriptor_pool,
         .descriptor_set_count = max_frames_in_flight,
@@ -477,7 +482,6 @@ fn createPipeline() !void {
     const pipeline_layout_info = vk.PipelineLayoutCreateInfo {
         .set_layout_count = 1,
         .p_set_layouts = @ptrCast(&descriptor_set_layout),
-        .push_constant_range_count = 0,
     };
 
     pipeline_layout = try gc.vkd.createPipelineLayout(gc.dev, &pipeline_layout_info, null);
@@ -623,7 +627,7 @@ fn destroyPipeline() void {
 
 fn drawFrame(allocator: Allocator) !void {
     const cmdbuf = command_buffers[swapchain.image_index];
-    //updateUniformBuffer(uniform_buffers_mapped[swapchain.image_index % max_frames_in_flight]);
+    updateUniformBuffer(uniform_buffers_mapped[swapchain.image_index % max_frames_in_flight]);
 
     const state = swapchain.present(cmdbuf) catch |err| switch (err) {
         error.OutOfDateKHR => Swapchain.PresentState.suboptimal,
