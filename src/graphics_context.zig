@@ -94,6 +94,7 @@ const DeviceDispatch = vk.DeviceWrapper(.{
     .allocateDescriptorSets = true,
     .updateDescriptorSets = true,
     .cmdBindDescriptorSets = true,
+    .resetCommandBuffer = true,
 });
 
 pub const GraphicsContext = struct {
@@ -152,16 +153,25 @@ pub const GraphicsContext = struct {
             .api_version = vk.makeApiVersion(0, 1, 1, 0),
         };
 
-        self.instance = try self.vkb.createInstance(&vk.InstanceCreateInfo{
+        var create_info = vk.InstanceCreateInfo{
             .flags = if (builtin.os.tag == .macos) .{
                 .enumerate_portability_bit_khr = true,
             } else .{},
             .p_application_info = &app_info,
-            .enabled_layer_count = 0,
-            .pp_enabled_layer_names = undefined,
             .enabled_extension_count = @intCast(instance_extensions.items.len),
             .pp_enabled_extension_names = @ptrCast(instance_extensions.items),
-        }, null);
+        };
+
+        if (builtin.mode == .Debug)
+        {
+            const layer_names = [_][*:0] const u8{ 
+                "VK_LAYER_KHRONOS_validation",
+            };
+            create_info.pp_enabled_layer_names = @ptrCast(&layer_names);
+            create_info.enabled_layer_count = layer_names.len;
+        }
+
+        self.instance = try self.vkb.createInstance(&create_info, null);
 
         self.vki = try InstanceDispatch.load(self.instance, self.vkb.dispatch.vkGetInstanceProcAddr);
         errdefer self.vki.destroyInstance(self.instance, null);
